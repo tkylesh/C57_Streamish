@@ -12,6 +12,12 @@ namespace Streamish.Repositories
     {
         public VideoRepository(IConfiguration configuration) : base(configuration) { }
 
+        public List<Video> SearchVideos(string title)
+        {
+            List<Video> allVideos = GetAllWithComments();
+            return allVideos.Where(v => v.Title.ToLower().Contains(title.ToLower())).ToList();
+        }
+
         public List<Video> GetAll()
         {
             using (var conn = Connection)
