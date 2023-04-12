@@ -16,6 +16,11 @@ export const addVideo = (video) => {
 };
 
 export const searchVideos = (title) => {
-    return fetch(baseUrl+"/search/"+title)
+    return fetch(baseUrl+"/search?q="+title+"&sortDesc=true")
         .then((res) => res.json())
 };
+
+export const getHottest = (since) => {
+    return fetch(baseUrl+"/hottest?since="+since)
+        .then((res) => res.json())
+}

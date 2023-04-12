@@ -20,7 +20,7 @@ namespace Streamish.Controllers
         {
             return Ok(_userProfileRepository.GetAll());
         }
-        
+        //localhost:5000/api/video/search?q=cat&sortDesc=true
         [HttpGet("{id}")]
         public IActionResult Get(int id)
         {

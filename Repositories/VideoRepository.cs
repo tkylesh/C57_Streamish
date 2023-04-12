@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.Linq;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Configuration;
@@ -12,10 +13,63 @@ namespace Streamish.Repositories
     {
         public VideoRepository(IConfiguration configuration) : base(configuration) { }
 
-        public List<Video> SearchVideos(string title)
+        public List<Video> Search(string criterion, bool sortDescending)
         {
-            List<Video> allVideos = GetAllWithComments();
-            return allVideos.Where(v => v.Title.ToLower().Contains(title.ToLower())).ToList();
+            using (var conn = Connection)
+            {
+                conn.Open();
+                using (var cmd = conn.CreateCommand())
+                {
+                    var sql = @"
+              SELECT v.Id, v.Title, v.Description, v.Url, v.DateCreated AS VideoDateCreated, v.UserProfileId,
+
+                     up.Name, up.Email, up.DateCreated AS UserProfileDateCreated,
+                     up.ImageUrl AS UserProfileImageUrl
+                        
+                FROM Video v 
+                     JOIN UserProfile up ON v.UserProfileId = up.Id
+               WHERE v.Title LIKE @Criterion OR v.Description LIKE @Criterion";
+
+                    if (sortDescending)
+                    {
+                        sql += " ORDER BY v.DateCreated DESC";
+                    }
+                    else
+                    {
+                        sql += " ORDER BY v.DateCreated";
+                    }
+
+                    cmd.CommandText = sql;
+                    DbUtils.AddParameter(cmd, "@Criterion", $"%{criterion}%");
+                    using (SqlDataReader reader = cmd.ExecuteReader())
+                    {
+
+                        var videos = new List<Video>();
+                        while (reader.Read())
+                        {
+                            videos.Add(new Video()
+                            {
+                                Id = DbUtils.GetInt(reader, "Id"),
+                                Title = DbUtils.GetString(reader, "Title"),
+                                Description = DbUtils.GetString(reader, "Description"),
+                                DateCreated = DbUtils.GetDateTime(reader, "VideoDateCreated"),
+                                Url = DbUtils.GetString(reader, "Url"),
+                                UserProfileId = DbUtils.GetInt(reader, "UserProfileId"),
+                                UserProfile = new UserProfile()
+                                {
+                                    Id = DbUtils.GetInt(reader, "UserProfileId"),
+                                    Name = DbUtils.GetString(reader, "Name"),
+                                    Email = DbUtils.GetString(reader, "Email"),
+                                    DateCreated = DbUtils.GetDateTime(reader, "UserProfileDateCreated"),
+                                    ImageUrl = DbUtils.GetString(reader, "UserProfileImageUrl"),
+                                },
+                            });
+                        }
+
+                        return videos;
+                    }
+                }
+            }
         }
 
         public List<Video> GetAll()
@@ -30,7 +84,6 @@ namespace Streamish.Repositories
 
                       up.Name, up.Email, up.DateCreated AS UserProfileDateCreated,
                       up.ImageUrl AS UserProfileImageUrl
-                        
                  FROM Video v 
                       JOIN UserProfile up ON v.UserProfileId = up.Id
              ORDER BY DateCreated
@@ -93,7 +146,7 @@ namespace Streamish.Repositories
 
                         var videos = new List<Video>();
                         while (reader.Read())
-                        {
+                        {//while opening bracket
                             var videoId = DbUtils.GetInt(reader, "VideoId");
 
                             var existingVideo = videos.FirstOrDefault(p => p.Id == videoId);
@@ -131,7 +184,7 @@ namespace Streamish.Repositories
                                     UserProfileId = DbUtils.GetInt(reader, "CommentUserProfileId")
                                 });
                             }
-                        }
+                        }//while closing bracket
 
                         return videos;
                     }
@@ -147,7 +200,7 @@ namespace Streamish.Repositories
                 using (var cmd = conn.CreateCommand())
                 {
                     cmd.CommandText = @"
-                        SELECT v.Id AS VideoId, v.Title, v.Description, v.Url, 
+                    SELECT v.Id AS VideoId, v.Title, v.Description, v.Url, 
                        v.DateCreated AS VideoDateCreated, v.UserProfileId As VideoUserProfileId,
 
                        up.Name, up.Email, up.DateCreated AS UserProfileDateCreated,
@@ -160,9 +213,9 @@ namespace Streamish.Repositories
                     WHERE v.Id = @Id
                     ORDER BY  v.DateCreated";
 
-                    DbUtils.AddParameter(cmd,"@Id",id);
+                    DbUtils.AddParameter(cmd, "@Id", id);
 
-                    
+
                     using (SqlDataReader reader = cmd.ExecuteReader())
                     {
                         var videos = new List<Video>();
@@ -313,6 +366,60 @@ namespace Streamish.Repositories
                     cmd.ExecuteNonQuery();
                 }
             }
+        }
+
+        public List<Video> GetHottestVideos(DateTime since)
+        {
+            using (var conn = Connection)
+            {
+                conn.Open();
+                using (var cmd = conn.CreateCommand())
+                {
+                    var sql = @"
+              SELECT v.Id, v.Title, v.Description, v.Url, v.DateCreated AS VideoDateCreated, v.UserProfileId,
+
+                     up.Name, up.Email, up.DateCreated AS UserProfileDateCreated,
+                     up.ImageUrl AS UserProfileImageUrl
+                        
+                FROM Video v 
+                     JOIN UserProfile up ON v.UserProfileId = up.Id
+                        AND v.DateCreated > @Since";
+
+                    DbUtils.AddParameter(cmd, "@Since", since);
+
+                    cmd.CommandText = sql;
+                    using (SqlDataReader reader = cmd.ExecuteReader())
+                    {
+                        var videos = new List<Video>();
+                        while (reader.Read())
+                        {
+                            videos.Add(new Video()
+                            {
+                                Id = DbUtils.GetInt(reader, "Id"),
+                                Title = DbUtils.GetString(reader, "Title"),
+                                Description = DbUtils.GetString(reader, "Description"),
+                                DateCreated = DbUtils.GetDateTime(reader, "VideoDateCreated"),
+                                Url = DbUtils.GetString(reader, "Url"),
+                                UserProfileId = DbUtils.GetInt(reader, "UserProfileId"),
+                                UserProfile = new UserProfile()
+                                {
+                                    Id = DbUtils.GetInt(reader, "UserProfileId"),
+                                    Name = DbUtils.GetString(reader, "Name"),
+                                    Email = DbUtils.GetString(reader, "Email"),
+                                    DateCreated = DbUtils.GetDateTime(reader, "UserProfileDateCreated"),
+                                    ImageUrl = DbUtils.GetString(reader, "UserProfileImageUrl"),
+                                }
+                            });
+                        }
+                        reader.Close();
+                        return videos;
+                    }
+                    {
+
+                    }
+                }
+            }
+            throw new NotImplementedException();
         }
 
         public void Delete(int id)

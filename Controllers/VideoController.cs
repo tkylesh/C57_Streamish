@@ -33,12 +33,13 @@ namespace Streamish.Controllers
             return Ok(video);
         }
 
-        [HttpGet("search/{title}")]
-        public IActionResult Search(string title)
+        //will respond to a request like this: https://localhost:5001/api/video/search?q=cat&sortDesc=true
+        [HttpGet("search")]
+        public IActionResult Search(string q, bool sortDesc)
         {
             try
             {
-                var result = _videoRepository.SearchVideos(title);
+                var result = _videoRepository.Search(q, sortDesc);
                 if (result.Any())
                 {
                     return Ok(result);
@@ -50,6 +51,13 @@ namespace Streamish.Controllers
             {
                 return BadRequest(ex.Message);
             }
+        }
+
+        //will respond to a request like this: https://localhost:5001/api/video/hottest?since=2021-01-01
+        [HttpGet("hottest")]
+        public IActionResult GetHottest(DateTime since)
+        {
+            return Ok(_videoRepository.GetHottestVideos(since));
         }
 
         [HttpGet("GetWithComments")]
